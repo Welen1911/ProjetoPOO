@@ -2,6 +2,8 @@ package Frontend;
 
 import java.util.List;
 import Backend.Client.Cliente;
+import Backend.Response.ResponseCliente;
+import Backend.Transacao;
 import javax.swing.JOptionPane;
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -17,9 +19,11 @@ public class Depositar extends javax.swing.JFrame {
     
     Cliente cliente;
     List<Cliente> listaCliente;
+    private Transacao transacao;
     
     public Depositar(Cliente cliente, List<Cliente> listaClientes) {
         initComponents();
+        this.transacao = new Transacao();
         this.cliente = cliente;
         this.listaCliente = listaClientes;
         jLNomeCliente.setText(this.cliente.getNome());
@@ -242,12 +246,14 @@ public class Depositar extends javax.swing.JFrame {
             double valorDeposito = Double.parseDouble(jTFValorEsperado.getText());
             String senhaInformada = String.valueOf(JPSenha.getPassword());
             
-            if(!cliente.getContaCorrente().getSenha().equals(senhaInformada)) {
-                throw new StringIndexOutOfBoundsException("Senha incorreta!");
-            }
+            ResponseCliente response = transacao.depositar(this.cliente, valorDeposito, senhaInformada);
             
-            cliente.getContaCorrente().sumSaldo(valorDeposito);
-            listaCliente = CaixaEletronico.atualizaValoresClienteLogado(listaCliente, cliente);
+            if(response.getStatus() != 200) {
+                throw new Exception(response.getException());
+            }
+            this.cliente = response.getCliente();
+            
+            listaCliente = Cliente.updateList(listaCliente, cliente);
             
             this.dispose();
             Principal principal = new Principal(cliente, listaCliente);

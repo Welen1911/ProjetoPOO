@@ -2,6 +2,8 @@ package Frontend;
 
 import java.util.List;
 import Backend.Client.Cliente;
+import Backend.Response.ResponseCliente;
+import Backend.Transacao;
 import javax.swing.JOptionPane;
 /*
  * To change this license header, choose License Headers in Project Properties.
@@ -17,10 +19,12 @@ public class Sacar extends javax.swing.JFrame {
     
     Cliente cliente;
     List<Cliente> listaCliente;
+    private Transacao transacao;
     
     public Sacar(Cliente cliente, List<Cliente> listaClientes) {
         initComponents();
-       this.cliente = cliente;
+        this.transacao = new Transacao();
+        this.cliente = cliente;
         this.listaCliente = listaClientes;
         jLNomeCliente.setText(this.cliente.getNome());
         jLSaldoCorrente.setText(String.valueOf(this.cliente.getContaCorrente().getSaldo()));        
@@ -252,12 +256,14 @@ public class Sacar extends javax.swing.JFrame {
             double valorSaque = Double.parseDouble(jTFValorEsperado.getText());
             String senhaInformada = String.valueOf(JPSenha.getPassword());
 
-            if(!cliente.getContaCorrente().getSenha().equals(senhaInformada)) {
-                throw new StringIndexOutOfBoundsException("Senha incorreta!");
+            ResponseCliente response = transacao.sacar(this.cliente, valorSaque, senhaInformada);
+            
+            if(response.getStatus() != 200) {
+                throw new Exception(response.getException());
             }
-
-            cliente.getContaCorrente().subSaldo(valorSaque);
-            listaCliente = CaixaEletronico.atualizaValoresClienteLogado(listaCliente, cliente);
+            this.cliente = response.getCliente();
+            
+            listaCliente = Cliente.updateList(listaCliente, cliente);
 
             this.dispose();
             Principal principal = new Principal(cliente, listaCliente);
