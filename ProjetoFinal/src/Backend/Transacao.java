@@ -1,11 +1,9 @@
 package Backend;
 
 import Backend.Client.Cliente;
+import Backend.Response.ResponseCliente;
 
 import java.util.List;
-import java.util.function.Predicate;
-import java.util.stream.Collectors;
-import Backend.*;
 
 public class Transacao {
 
@@ -19,20 +17,32 @@ public class Transacao {
         return this.cliente;
     }
 
+    public Cliente getClienteDestinatario(List<Cliente> listaClientes, String conta) {
+        for(Cliente clienteAtual : listaClientes) {
+            if(clienteAtual.getContaCorrente().getConta().equals(conta)) {
+                return clienteAtual;
+            }
+        }
+        return null;
+    }
+
     /* -------------------------------------------------------------------------- */
     /*                             Bloco de Depositar                             */
     /* -------------------------------------------------------------------------- */
-    public void depositar(List<Cliente> listaCliente, String conta, double valor) {
-        Cliente clienteSele = null; 
+    public ResponseCliente depositar(Cliente cliente, double valor, String senha) {
+        this.setCliente(cliente);
         try {
-            clienteSele = checarClienteContaCorrente(listaCliente, conta, valor);
-            if (clienteSele != null) {
-                clienteSele.getContaCorrente().sumSaldo(valor);
-            } else {
-                throw new NullPointerException("Conta não encontrada!");
+
+            if(!cliente.getContaCorrente().getSenha().equals(senha)) {
+                throw new StringIndexOutOfBoundsException("Senha incorreta!");
             }
+
+            cliente.getContaCorrente().sumSaldo(valor);
+            
+            return ResponseCliente.responseToCliente(cliente, 200, "");
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseCliente.responseToCliente(cliente, 403, e.getMessage());
         }
     }
 
@@ -48,80 +58,116 @@ public class Transacao {
     /* -------------------------------------------------------------------------- */
     /*                               Bloco de Sacar                               */
     /* -------------------------------------------------------------------------- */
-    public void sacar(Cliente cliente, double valor) {
+    public ResponseCliente sacar(Cliente cliente, double valor, String senha) {
         this.setCliente(cliente);
         try {
-            if (this.cliente.getContaCorrente().getSaldo() >= valor) {
-                this.cliente.getContaCorrente().subSaldo(valor);
-            } else {
+
+            if (this.cliente.getContaCorrente().getSaldo() < valor) {
                 throw new ArithmeticException("Saldo Insuficiente!");
+            } 
+            if(valor <= 0) {
+                throw new ArithmeticException("O valor deve ser maior que 0!");
             }
+            if(!cliente.getContaCorrente().getSenha().equals(senha)) {
+                throw new StringIndexOutOfBoundsException("Senha incorreta!");
+            }
+
+            this.cliente.getContaCorrente().subSaldo(valor);
+
+            return ResponseCliente.responseToCliente(this.cliente, 200, "");
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseCliente.responseToCliente(this.cliente, 403, e.getMessage());
         }        
     }
 
     /* -------------------------------------------------------------------------- */
     /*           Bloco de Transferir Conta corrente para conta corrente           */
     /* -------------------------------------------------------------------------- */
-    public void transferir(List<Cliente> listaCliente, Cliente cliente, String conta, double valor) {
+    public ResponseCliente transferir(List<Cliente> listaCliente, Cliente cliente, String conta, String senha, double valorTransferencia) {
         this.setCliente(cliente);
         try {
-            Cliente clienteFinal = null;
-
-            for (Cliente clienteTransferencia : listaCliente) {
-                if (clienteTransferencia.getContaCorrente().getConta().equals(conta)) {
-                    clienteFinal = clienteTransferencia;
-                    break;
-                }
-            }
+            Cliente clienteFinal = this.getClienteDestinatario(listaCliente, conta);
+            double saldoDisponivel = cliente.getContaCorrente().getSaldo();
 
             if(clienteFinal == null) {
-                throw new NullPointerException("Cliente não encontrado");
+                throw new NullPointerException("Não foi encontrado um destinatário com a conta: " + conta);
+            }
+            if(saldoDisponivel < valorTransferencia) {
+                throw new ArithmeticException("Saldo insuficiente!");
+            }
+            if(!cliente.getContaCorrente().getSenha().equals(senha)) {
+                throw new StringIndexOutOfBoundsException("Senha incorreta!");
             } 
 
-            clienteFinal.getContaCorrente().sumSaldo(valor);
-            cliente.getContaCorrente().subSaldo(valor);
+            clienteFinal.getContaCorrente().sumSaldo(valorTransferencia);
+            cliente.getContaCorrente().subSaldo(valorTransferencia);
+
+            listaCliente = Cliente.updateList(listaCliente, cliente);
+
+            return ResponseCliente.responseToListCliente(listaCliente, cliente, 200, "");
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseCliente.responseToListCliente(listaCliente, cliente, 403, e.getMessage());
         }   
     }
 
     /* -------------------------------------------------------------------------- */
     /*                            *Guardar e resgatar*                            */
     /* -------------------------------------------------------------------------- */
-    public void guardar(Cliente cliente, double valor) {
-        try {
-            if(cliente.getContaPoupanca().getSaldo() == 0) {
-                throw new ArithmeticException("Não há saldo para resgatar");
-            }
-
-            if(cliente.getContaPoupanca().getSaldo() >= valor) {
-                cliente.getContaPoupanca().subSaldo(valor);
-                cliente.getContaCorrente().sumSaldo(valor);
-            } else {
-                throw new ArithmeticException("O valor solicitado é superior ao saldo!");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+    
+    public ResponseCliente guardar(Cliente cliente, double valor, String senha) {
+        this.setCliente(cliente);
         
-    }
-
-    public void resgatar(Cliente cliente, double valor) {
         try {
             if(cliente.getContaCorrente().getSaldo() == 0) {
                 throw new ArithmeticException("Não há saldo para guardar");
             }
-
-            if(cliente.getContaCorrente().getSaldo() >= valor) {
-                cliente.getContaCorrente().subSaldo(valor);
-                cliente.getContaPoupanca().sumSaldo(valor);
-            } else {
+            if(valor <= 0) {
+                throw new ArithmeticException("O valor deve ser maior que 0!");
+            }
+            if(cliente.getContaCorrente().getSaldo() < valor) {
                 throw new ArithmeticException("O valor solicitado é superior ao saldo!");
             }
+            if(!cliente.getContaCorrente().getSenha().equals(senha)) {
+                throw new StringIndexOutOfBoundsException("Senha incorreta!");
+            }
+
+            cliente.getContaCorrente().subSaldo(valor);
+            cliente.getContaPoupanca().sumSaldo(valor);
+
+            return ResponseCliente.responseToCliente(this.cliente, 200, "");
         } catch (Exception e) {
             e.printStackTrace();
+            return ResponseCliente.responseToCliente(this.cliente, 403, e.getMessage());
+        }
+    }
+    
+    public ResponseCliente resgatar(Cliente cliente, double valor, String senha) {
+        this.setCliente(cliente);
+
+        try {
+            if(cliente.getContaPoupanca().getSaldo() == 0) {
+                throw new ArithmeticException("Não há saldo para resgatar");
+            }
+            if(valor <= 0) {
+                throw new ArithmeticException("O valor deve ser maior que 0!");
+            }
+            if(cliente.getContaPoupanca().getSaldo() < valor) {
+                throw new ArithmeticException("O valor solicitado é superior ao saldo!");
+            }
+            if(!cliente.getContaCorrente().getSenha().equals(senha)) {
+                throw new StringIndexOutOfBoundsException("Senha incorreta!");
+            }
+
+            cliente.getContaPoupanca().subSaldo(valor);
+            cliente.getContaCorrente().sumSaldo(valor);
+
+            return ResponseCliente.responseToCliente(this.cliente, 200, "");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseCliente.responseToCliente(this.cliente, 403, e.getMessage());
         }
     }
 }

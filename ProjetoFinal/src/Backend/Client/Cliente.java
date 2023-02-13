@@ -101,4 +101,18 @@ public class Cliente implements Usuarios {
 
         return listaCliente;
     }
+
+    public static List<Cliente> updateList(List<Cliente> listaClientes, Cliente clienteLogado) {
+        String contaClienteLogado = clienteLogado.getContaCorrente().getConta();
+        
+        for(Cliente clienteAtual : listaClientes) {
+            if(clienteAtual.getContaCorrente().getConta().equals(contaClienteLogado)) {
+                clienteAtual.getContaCorrente().setSaldo(clienteLogado.getContaCorrente().getSaldo());
+                clienteAtual.getContaPoupanca().setSaldo(clienteLogado.getContaPoupanca().getSaldo());
+                break;
+            }
+        }
+        
+        return listaClientes;
+    }
 }
